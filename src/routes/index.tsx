@@ -2,27 +2,22 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Bus, ClipboardList, IndianRupee, Receipt, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "College Bus Management System — Registration, Fees & Expenses" },
-      {
-        name: "description",
-        content:
-          "Manage college bus registrations, monthly fee collection with fine and superfine rules, expenses and monthly statements in one place.",
-      },
-      { property: "og:title", content: "College Bus Management System" },
-      {
-        property: "og:description",
-        content:
-          "Registrations, monthly fee collection with automatic fine rules, expense tracking and monthly statements.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-  }),
-  component: Landing,
-});
+import { createFileRoute } from '@tanstack/react-router'
+
+export const Route = createFileRoute('/')({
+  component: HomeComponent,
+})
+
+function HomeComponent() {
+  return (
+    <div className="container mx-auto p-6">
+      <h1 className="text-3xl font-bold mb-4">Welcome to Campus Commute</h1>
+      <p className="text-gray-600 mb-6">Find and offer rides across campus effortlessly.</p>
+      
+      {/* Insert your actual ride search / booking components here */}
+    </div>
+  )
+}
 
 const FEATURES = [
   {
