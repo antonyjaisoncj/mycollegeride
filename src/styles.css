@@ -142,3 +142,11 @@
     color: var(--color-foreground);
   }
 }
+
+@media print {
+  /* Defaulters-only report: keep just #defaulters-report and its ancestors. */
+  body.print-defaulters-only
+    *:not(:has(#defaulters-report)):not(#defaulters-report):not(#defaulters-report *) {
+    display: none !important;
+  }
+}

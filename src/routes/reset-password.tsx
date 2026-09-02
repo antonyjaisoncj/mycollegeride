@@ -31,17 +31,45 @@ function ResetPasswordPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    const recoveryHash = new URLSearchParams(window.location.hash.slice(1)).get("type") === "recovery";
     let active = true;
 
-    supabase.auth.getSession().then(({ data }) => {
+    async function verifyLink() {
+      const url = new URL(window.location.href);
+      const hash = new URLSearchParams(window.location.hash.slice(1));
+      const code = url.searchParams.get("code");
+      const tokenHash = url.searchParams.get("token_hash");
+      const type = url.searchParams.get("type") ?? hash.get("type");
+
+      // Newer reset mails carry ?code= (PKCE) or ?token_hash=&type=recovery.
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (!active) return;
+        setRecoveryReady(!error);
+        setChecking(false);
+        return;
+      }
+      if (tokenHash) {
+        const { error } = await supabase.auth.verifyOtp({
+          type: "recovery",
+          token_hash: tokenHash,
+        });
+        if (!active) return;
+        setRecoveryReady(!error);
+        setChecking(false);
+        return;
+      }
+
+      // Legacy links put the tokens in the URL fragment.
+      const { data } = await supabase.auth.getSession();
       if (!active) return;
-      setRecoveryReady(recoveryHash || Boolean(data.session));
+      setRecoveryReady(type === "recovery" || Boolean(data.session));
       setChecking(false);
-    });
+    }
+
+    void verifyLink();
 
     const { data: listener } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
+      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
         setRecoveryReady(true);
         setChecking(false);
       }
@@ -52,6 +80,7 @@ function ResetPasswordPage() {
       listener.subscription.unsubscribe();
     };
   }, []);
+
 
   async function updatePassword(e: React.FormEvent) {
     e.preventDefault();

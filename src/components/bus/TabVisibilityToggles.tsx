@@ -28,7 +28,9 @@ export function TabVisibilityToggles() {
     { key: "expenses_visible", label: "Expense tracker" },
     { key: "statement_visible", label: "Monthly statement" },
     { key: "driver_visible", label: "Driver" },
+    { key: "advance_visible", label: "Advance" },
   ] as const;
+
 
   return (
     <div className="rounded-xl border border-border bg-card p-5 shadow-sm">

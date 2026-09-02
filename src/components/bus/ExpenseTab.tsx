@@ -182,6 +182,27 @@ export function ExpenseTab({ readOnly = false }: { readOnly?: boolean }) {
           </div>
         </div>
 
+        {data?.balance ? (
+          <div className="mt-4 grid gap-3 rounded-xl border border-border bg-card p-5 shadow-sm sm:grid-cols-2 lg:grid-cols-5">
+            <BalanceCell
+              label="Opening balance"
+              value={data.balance.opening}
+              hint="Carried forward"
+            />
+            <BalanceCell label="Fee & fine received" value={data.balance.feeReceived} />
+            <BalanceCell label="Other income" value={data.balance.otherIncome} />
+            <BalanceCell label="Advance difference" value={data.balance.advanceDelta} />
+            <BalanceCell label="Expenses" value={-data.balance.expenses} />
+            <BalanceCell
+              label="Monthly balance"
+              value={data.balance.closing}
+              hint="Carried to next month"
+              strong
+            />
+          </div>
+        ) : null}
+
+
         <div className="mt-4 overflow-x-auto rounded-xl border border-border bg-card">
           <table className="w-full min-w-[720px] text-sm">
             <thead className="bg-muted/60 text-left text-muted-foreground">
@@ -238,3 +259,31 @@ export function ExpenseTab({ readOnly = false }: { readOnly?: boolean }) {
     </div>
   );
 }
+
+/** One figure in the carry-forward balance strip; negatives show in red. */
+function BalanceCell({
+  label,
+  value,
+  hint,
+  strong,
+}: {
+  label: string;
+  value: number;
+  hint?: string;
+  strong?: boolean;
+}) {
+  return (
+    <div>
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p
+        className={`mt-1 ${strong ? "text-xl font-semibold" : "text-lg font-medium"} ${
+          value < 0 ? "text-destructive" : "text-card-foreground"
+        }`}
+      >
+        {value < 0 ? `-${formatINR(Math.abs(value))}` : formatINR(value)}
+      </p>
+      {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+    </div>
+  );
+}
+

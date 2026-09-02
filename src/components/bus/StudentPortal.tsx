@@ -90,10 +90,21 @@ export function StudentPortal({ section = "all" }: { section?: Section }) {
     guardian_phone: "",
   });
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   const submit = useMutation({
     mutationFn: async (values: typeof form) => {
       const parsed = registrationSchema.safeParse(values);
-      if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Check the form");
+      if (!parsed.success) {
+        const fieldErrors: Record<string, string> = {};
+        for (const issue of parsed.error.issues) {
+          const key = String(issue.path[0] ?? "form");
+          if (!fieldErrors[key]) fieldErrors[key] = issue.message;
+        }
+        setErrors(fieldErrors);
+        throw new Error("Please correct the highlighted fields");
+      }
+      setErrors({});
       const photo_path = photoFile ? await uploadPhoto(photoFile) : undefined;
       return register({ data: { ...parsed.data, ...(photo_path ? { photo_path } : {}) } });
     },
@@ -102,10 +113,12 @@ export function StudentPortal({ section = "all" }: { section?: Section }) {
       setShowForm(false);
       setPhotoFile(null);
       setPhotoPreview(null);
+      setErrors({});
       qc.invalidateQueries({ queryKey: ["my-fee-status"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(e.message || "Could not submit the registration"),
   });
+
 
   const replacePhoto = useMutation({
     mutationFn: async (file: File) => {
@@ -194,23 +207,25 @@ export function StudentPortal({ section = "all" }: { section?: Section }) {
         </p>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <Text label="Full name" value={form.full_name} onChange={(v) => setForm({ ...form, full_name: v })} />
+          <Text label="Full name" value={form.full_name} error={errors["full_name"]} onChange={(v) => setForm({ ...form, full_name: v })} />
           <Text
             label="Email"
             type="email"
             value={form.email}
             readOnly
             hint="Your sign-in email. Contact the transport office to change it."
+            error={errors["email"]}
             onChange={() => {}}
           />
 
-          <Text label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
-          <Text label="Branch" value={form.branch} onChange={(v) => setForm({ ...form, branch: v })} />
+          <Text label="Phone" value={form.phone} error={errors["phone"]} onChange={(v) => setForm({ ...form, phone: v })} />
+          <Text label="Branch" value={form.branch} error={errors["branch"]} onChange={(v) => setForm({ ...form, branch: v })} />
           <Pick
             label="Year of study"
             placeholder="Select year"
             options={YEARS}
             value={form.year_of_study}
+            error={errors["year_of_study"]}
             onChange={(v) => setForm({ ...form, year_of_study: v })}
           />
           <Pick
@@ -218,21 +233,25 @@ export function StudentPortal({ section = "all" }: { section?: Section }) {
             placeholder="Select stage"
             options={STAGES}
             value={form.stage}
+            error={errors["stage"]}
             onChange={(v) => setForm({ ...form, stage: v })}
           />
           <Text
             label="Boarding point"
             value={form.boarding_point}
+            error={errors["boarding_point"]}
             onChange={(v) => setForm({ ...form, boarding_point: v })}
           />
           <Text
             label="Guardian name"
             value={form.guardian_name}
+            error={errors["guardian_name"]}
             onChange={(v) => setForm({ ...form, guardian_name: v })}
           />
           <Text
             label="Guardian phone"
             value={form.guardian_phone}
+            error={errors["guardian_phone"]}
             onChange={(v) => setForm({ ...form, guardian_phone: v })}
           />
           <div className="space-y-2 sm:col-span-2">
@@ -243,7 +262,12 @@ export function StudentPortal({ section = "all" }: { section?: Section }) {
               value={form.address}
               onChange={(e) => setForm({ ...form, address: e.target.value })}
             />
+            {errors["address"] ? (
+              <p className="text-xs text-destructive">{errors["address"]}</p>
+            ) : null}
           </div>
+
+
 
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="photo">Passport photo</Label>
@@ -480,6 +504,7 @@ function Text({
   type = "text",
   readOnly = false,
   hint,
+  error,
 }: {
   label: string;
   value: string;
@@ -487,6 +512,7 @@ function Text({
   type?: string;
   readOnly?: boolean;
   hint?: string;
+  error?: string | undefined;
 }) {
   return (
     <div className="space-y-2">
@@ -494,12 +520,19 @@ function Text({
       <Input
         type={type}
         value={value}
-        required
         readOnly={readOnly}
         aria-readonly={readOnly}
-        className={readOnly ? "bg-muted text-muted-foreground" : undefined}
+        aria-invalid={Boolean(error)}
+        className={
+          readOnly
+            ? "bg-muted text-muted-foreground"
+            : error
+              ? "border-destructive"
+              : undefined
+        }
         onChange={(e) => onChange(e.target.value)}
       />
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
       {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
     </div>
   );
@@ -512,18 +545,20 @@ function Pick({
   options,
   value,
   onChange,
+  error,
 }: {
   label: string;
   placeholder: string;
   options: readonly string[];
   value: string;
   onChange: (v: string) => void;
+  error?: string | undefined;
 }) {
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger>
+        <SelectTrigger className={error ? "border-destructive" : undefined}>
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
@@ -534,9 +569,11 @@ function Pick({
           ))}
         </SelectContent>
       </Select>
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
     </div>
   );
 }
+
 
 function Row({ label, value }: { label: string; value: string }) {
   return (

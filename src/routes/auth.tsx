@@ -37,6 +37,8 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [screen, setScreen] = useState<"auth" | "forgot">("auth");
+  const [resetSent, setResetSent] = useState(false);
+
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -104,7 +106,7 @@ function AuthPage() {
   async function sendPasswordReset(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
       redirectTo: `${window.location.origin}/reset-password`,
     });
     setBusy(false);
@@ -112,9 +114,10 @@ function AuthPage() {
       toast.error(error.message);
       return;
     }
+    setResetSent(true);
     toast.success("Check your email for the password reset link");
-    setScreen("auth");
   }
+
 
   async function google() {
     const result = await lovable.auth.signInWithOAuth("google", {
@@ -144,18 +147,33 @@ function AuthPage() {
             <div>
               <h1 className="text-xl font-semibold text-card-foreground">Reset your password</h1>
               <p className="mt-2 text-sm text-muted-foreground">
-                Enter your email and we will send you a secure reset link.
+                Enter your email and we will send you a secure reset link. Open the link on
+                this device and you will land straight on the new-password page.
               </p>
               <form onSubmit={sendPasswordReset} className="mt-6 space-y-4">
                 <Field id="reset-email" label="Email" type="email" value={email} onChange={setEmail} />
                 <Button type="submit" className="w-full" disabled={busy}>
-                  {busy ? "Sending…" : "Send reset link"}
+                  {busy ? "Sending…" : resetSent ? "Send the link again" : "Send reset link"}
                 </Button>
               </form>
-              <Button variant="ghost" className="mt-2 w-full" onClick={() => setScreen("auth")}>
+              {resetSent ? (
+                <p className="mt-3 rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+                  A reset link is on its way to {email}. It expires in one hour — check the
+                  spam folder if it does not arrive.
+                </p>
+              ) : null}
+              <Button
+                variant="ghost"
+                className="mt-2 w-full"
+                onClick={() => {
+                  setResetSent(false);
+                  setScreen("auth");
+                }}
+              >
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to sign in
               </Button>
             </div>
+
           ) : (
           <>
           <Tabs defaultValue="signin">

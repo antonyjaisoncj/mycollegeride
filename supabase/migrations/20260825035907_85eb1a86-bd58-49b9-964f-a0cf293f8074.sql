@@ -1,0 +1,1 @@
+ALTER TABLE public.app_settings ADD COLUMN IF NOT EXISTS advance_visible boolean NOT NULL DEFAULT true;

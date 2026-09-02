@@ -10,12 +10,63 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
+      advance_entries: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          entry_date: string
+          id: string
+          kind: string
+          mode: Database["public"]["Enums"]["payment_mode"]
+          note: string | null
+          student_id: string
+          txn_no: string | null
+          voided_at: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          entry_date?: string
+          id?: string
+          kind: string
+          mode?: Database["public"]["Enums"]["payment_mode"]
+          note?: string | null
+          student_id: string
+          txn_no?: string | null
+          voided_at?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          entry_date?: string
+          id?: string
+          kind?: string
+          mode?: Database["public"]["Enums"]["payment_mode"]
+          note?: string | null
+          student_id?: string
+          txn_no?: string | null
+          voided_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "advance_entries_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_settings: {
         Row: {
+          advance_visible: boolean
           created_at: string
           driver_visible: boolean
           expenses_visible: boolean
@@ -24,6 +75,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          advance_visible?: boolean
           created_at?: string
           driver_visible?: boolean
           expenses_visible?: boolean
@@ -32,6 +84,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          advance_visible?: boolean
           created_at?: string
           driver_visible?: boolean
           expenses_visible?: boolean
@@ -51,7 +104,9 @@ export type Database = {
           expense_date: string
           id: string
           notes: string | null
+          txn_no: string | null
           vendor: string
+          voided_at: string | null
         }
         Insert: {
           amount: number
@@ -62,7 +117,9 @@ export type Database = {
           expense_date: string
           id?: string
           notes?: string | null
+          txn_no?: string | null
           vendor: string
+          voided_at?: string | null
         }
         Update: {
           amount?: number
@@ -73,7 +130,9 @@ export type Database = {
           expense_date?: string
           id?: string
           notes?: string | null
+          txn_no?: string | null
           vendor?: string
+          voided_at?: string | null
         }
         Relationships: []
       }
@@ -104,6 +163,42 @@ export type Database = {
         }
         Relationships: []
       }
+      other_income: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          id: string
+          income_date: string
+          particulars: string
+          remarks: string | null
+          txn_no: string | null
+          voided_at: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          income_date: string
+          particulars: string
+          remarks?: string | null
+          txn_no?: string | null
+          voided_at?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          income_date?: string
+          particulars?: string
+          remarks?: string | null
+          txn_no?: string | null
+          voided_at?: string | null
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           base_amount: number
@@ -115,10 +210,13 @@ export type Database = {
           receipt_no: string
           recorded_by: string | null
           reference: string | null
+          settled: boolean
           stage: Database["public"]["Enums"]["penalty_stage"]
           student_id: string
           total_amount: number
+          txn_no: string | null
           value_date: string
+          voided_at: string | null
         }
         Insert: {
           base_amount: number
@@ -130,10 +228,13 @@ export type Database = {
           receipt_no: string
           recorded_by?: string | null
           reference?: string | null
+          settled?: boolean
           stage: Database["public"]["Enums"]["penalty_stage"]
           student_id: string
           total_amount: number
+          txn_no?: string | null
           value_date?: string
+          voided_at?: string | null
         }
         Update: {
           base_amount?: number
@@ -145,10 +246,13 @@ export type Database = {
           receipt_no?: string
           recorded_by?: string | null
           reference?: string | null
+          settled?: boolean
           stage?: Database["public"]["Enums"]["penalty_stage"]
           student_id?: string
           total_amount?: number
+          txn_no?: string | null
           value_date?: string
+          voided_at?: string | null
         }
         Relationships: [
           {
@@ -181,14 +285,21 @@ export type Database = {
       students: {
         Row: {
           address: string | null
+          advance_amount: number
+          advance_limit: number
+          advance_returned_amount: number | null
+          advance_returned_at: string | null
           application_no: number
           blacklist_reason: string | null
           blacklisted: boolean
           boarding_point: string | null
           branch: string | null
+          closed_at: string | null
           created_at: string
           date_of_joining: string | null
           email: string | null
+          fine_amount: number
+          frozen_at: string | null
           full_name: string
           guardian_name: string | null
           guardian_phone: string | null
@@ -198,23 +309,32 @@ export type Database = {
           pickup_seq: number | null
           rejection_reason: string | null
           roll_number: string | null
+          settlement_amount: number | null
           slab: Database["public"]["Enums"]["fee_slab"]
           stage: Database["public"]["Enums"]["bus_stage"]
           status: Database["public"]["Enums"]["reg_status"]
+          superfine_amount: number
           updated_at: string
           user_id: string | null
           year_of_study: string | null
         }
         Insert: {
           address?: string | null
+          advance_amount?: number
+          advance_limit?: number
+          advance_returned_amount?: number | null
+          advance_returned_at?: string | null
           application_no?: number
           blacklist_reason?: string | null
           blacklisted?: boolean
           boarding_point?: string | null
           branch?: string | null
+          closed_at?: string | null
           created_at?: string
           date_of_joining?: string | null
           email?: string | null
+          fine_amount?: number
+          frozen_at?: string | null
           full_name: string
           guardian_name?: string | null
           guardian_phone?: string | null
@@ -224,23 +344,32 @@ export type Database = {
           pickup_seq?: number | null
           rejection_reason?: string | null
           roll_number?: string | null
+          settlement_amount?: number | null
           slab?: Database["public"]["Enums"]["fee_slab"]
           stage?: Database["public"]["Enums"]["bus_stage"]
           status?: Database["public"]["Enums"]["reg_status"]
+          superfine_amount?: number
           updated_at?: string
           user_id?: string | null
           year_of_study?: string | null
         }
         Update: {
           address?: string | null
+          advance_amount?: number
+          advance_limit?: number
+          advance_returned_amount?: number | null
+          advance_returned_at?: string | null
           application_no?: number
           blacklist_reason?: string | null
           blacklisted?: boolean
           boarding_point?: string | null
           branch?: string | null
+          closed_at?: string | null
           created_at?: string
           date_of_joining?: string | null
           email?: string | null
+          fine_amount?: number
+          frozen_at?: string | null
           full_name?: string
           guardian_name?: string | null
           guardian_phone?: string | null
@@ -250,12 +379,68 @@ export type Database = {
           pickup_seq?: number | null
           rejection_reason?: string | null
           roll_number?: string | null
+          settlement_amount?: number | null
           slab?: Database["public"]["Enums"]["fee_slab"]
           stage?: Database["public"]["Enums"]["bus_stage"]
           status?: Database["public"]["Enums"]["reg_status"]
+          superfine_amount?: number
           updated_at?: string
           user_id?: string | null
           year_of_study?: string | null
+        }
+        Relationships: []
+      }
+      transaction_counters: {
+        Row: {
+          day: string
+          last_no: number
+          updated_at: string
+        }
+        Insert: {
+          day: string
+          last_no?: number
+          updated_at?: string
+        }
+        Update: {
+          day?: string
+          last_no?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          cancelled_at: string | null
+          cancelled_by: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          note: string | null
+          txn_date: string
+          txn_no: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind: string
+          note?: string | null
+          txn_date: string
+          txn_no: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          note?: string | null
+          txn_date?: string
+          txn_no?: string
         }
         Relationships: []
       }
@@ -295,6 +480,7 @@ export type Database = {
         Returns: boolean
       }
       next_receipt_no: { Args: { _period: string }; Returns: string }
+      next_txn_no: { Args: { _day: string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "student" | "driver"

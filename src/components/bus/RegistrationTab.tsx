@@ -2,12 +2,14 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Check, Plus, X } from "lucide-react";
+import { AlertTriangle, Check, Plus, X } from "lucide-react";
 import {
   approveApplication,
+  getFeeConfig,
   grantDriver,
   listApplications,
   listDrivers,
+  masterReset,
   photoUrls,
   quickAddStudent,
   rejectApplication,
@@ -19,24 +21,58 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { formatDate, formatINR, periodLabel } from "@/lib/fee-rules";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+import {
+  DEFAULT_PENALTIES,
+  currentPeriod,
+  formatDate,
+  formatINR,
+  periodLabel,
+} from "@/lib/fee-rules";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
 export function RegistrationTab() {
   const [joining, setJoining] = useState<Record<string, string>>({});
+  const [fine, setFine] = useState<Record<string, string>>({});
+  const [superfine, setSuperfine] = useState<Record<string, string>>({});
+  const [advance, setAdvance] = useState<Record<string, string>>({});
 
   const fetchApps = useServerFn(listApplications);
   const approveFn = useServerFn(approveApplication);
   const rejectFn = useServerFn(rejectApplication);
   const quickAddFn = useServerFn(quickAddStudent);
   const photosFn = useServerFn(photoUrls);
+  const feeCfgFn = useServerFn(getFeeConfig);
   const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
     queryKey: ["applications"],
     queryFn: () => fetchApps(),
   });
+
+  const period = currentPeriod();
+  const { data: feeCfg } = useQuery({
+    queryKey: ["fee-config", period],
+    queryFn: () => feeCfgFn({ data: { period } }),
+  });
+
+  /** Defaults for a pending application: penalties and one month's fee as advance. */
+  const defaultsFor = (stage: string) => {
+    const higher = stage !== "Stage-1";
+    const slabDefaults = DEFAULT_PENALTIES[higher ? "higher" : "lower"];
+    const cfg = feeCfg?.config ?? null;
+    const monthFee = cfg ? Number(higher ? cfg.higher_amount : cfg.lower_amount) : 0;
+    return { ...slabDefaults, advance: monthFee };
+  };
 
   const paths = (data?.students ?? [])
     .map((s) => s.photo_path)
@@ -193,18 +229,49 @@ export function RegistrationTab() {
                         onChange={(e) => setJoining({ ...joining, [s.id]: e.target.value })}
                       />
                     </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">Fine amount (₹)</label>
+                      <Input
+                        className="w-28"
+                        inputMode="numeric"
+                        value={fine[s.id] ?? String(defaultsFor(s.stage).fine)}
+                        onChange={(e) => setFine({ ...fine, [s.id]: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">Superfine amount (₹)</label>
+                      <Input
+                        className="w-32"
+                        inputMode="numeric"
+                        value={superfine[s.id] ?? String(defaultsFor(s.stage).superfine)}
+                        onChange={(e) => setSuperfine({ ...superfine, [s.id]: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">Maximum advance (₹)</label>
+                      <Input
+                        className="w-32"
+                        inputMode="numeric"
+                        value={advance[s.id] ?? String(defaultsFor(s.stage).advance)}
+                        onChange={(e) => setAdvance({ ...advance, [s.id]: e.target.value })}
+                      />
+                    </div>
                     <Button
                       size="sm"
                       disabled={approve.isPending}
-                      onClick={() =>
+                      onClick={() => {
+                        const d = defaultsFor(s.stage);
                         approve.mutate({
                           data: {
                             id: s.id,
                             roll_number: (roll[s.id] ?? data?.nextRoll ?? "").trim(),
                             date_of_joining: joining[s.id] ?? todayISO(),
+                            fine_amount: Number(fine[s.id] ?? d.fine) || 0,
+                            superfine_amount: Number(superfine[s.id] ?? d.superfine) || 0,
+                            advance_amount: Number(advance[s.id] ?? d.advance) || 0,
                           },
-                        })
-                      }
+                        });
+                      }}
                     >
                       <Check className="mr-1 h-4 w-4" /> Approve
                     </Button>
@@ -333,10 +400,75 @@ export function RegistrationTab() {
         </section>
       ) : null}
 
+      <MasterResetBox />
+
       <StudentDetailDialog studentId={selectedId} onClose={() => setSelectedId(null)} />
     </div>
   );
 }
+
+/** Admin-only: wipe every student and financial record for a fresh start. */
+function MasterResetBox() {
+  const resetFn = useServerFn(masterReset);
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [confirm, setConfirm] = useState("");
+
+  const reset = useMutation({
+    mutationFn: resetFn,
+    onSuccess: () => {
+      toast.success("Database reset — all student and financial records cleared");
+      setOpen(false);
+      setConfirm("");
+      qc.invalidateQueries();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <section className="rounded-xl border border-destructive/40 bg-destructive/5 p-5">
+      <h2 className="flex items-center gap-2 text-lg font-semibold text-destructive">
+        <AlertTriangle className="h-5 w-5" /> Master reset
+      </h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Permanently deletes every student, payment, advance, expense, other income and
+        transaction, and clears uploaded photos. Admin and driver logins are kept.
+      </p>
+      <Button className="mt-4" variant="destructive" onClick={() => setOpen(true)}>
+        Reset all data
+      </Button>
+
+      <Dialog open={open} onOpenChange={(o) => !o && setOpen(false)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reset the whole database?</DialogTitle>
+            <DialogDescription>
+              This cannot be undone. Type RESET to confirm.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={confirm}
+            placeholder="RESET"
+            onChange={(e) => setConfirm(e.target.value)}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={confirm !== "RESET" || reset.isPending}
+              onClick={() => reset.mutate({ data: { confirm: "RESET" as const } })}
+            >
+              Delete everything
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </section>
+  );
+}
+
 
 /** Admin-only: give or remove driver access for an existing account. */
 function DriverAccessBox() {

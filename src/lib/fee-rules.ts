@@ -92,10 +92,46 @@ export function stageOn(period: string, onDate?: string): PenaltyStage {
   return "blacklisted";
 }
 
-export function penaltyAmount(base: number, stage: PenaltyStage): number {
-  if (stage === "fine") return Math.round(base / 12);
-  if (stage === "superfine" || stage === "blacklisted") return Math.round(base / 4);
+/** Fixed penalty amounts per slab, used when a student has no override. */
+export const DEFAULT_PENALTIES: Record<Slab, PenaltyAmounts> = {
+  lower: { fine: 50, superfine: 100 },
+  higher: { fine: 100, superfine: 200 },
+};
+
+export interface PenaltyAmounts {
+  fine: number;
+  superfine: number;
+}
+
+export function penaltyAmount(
+  _base: number,
+  stage: PenaltyStage,
+  amounts: PenaltyAmounts = DEFAULT_PENALTIES.lower,
+): number {
+  if (stage === "fine") return Math.round(Number(amounts.fine) || 0);
+  if (stage === "superfine" || stage === "blacklisted") {
+    return Math.round(Number(amounts.superfine) || 0);
+  }
   return 0;
+}
+
+/** The penalty amounts stored on a student, falling back to the slab defaults. */
+export function penaltiesOf(student: {
+  slab?: string | null;
+  fine_amount?: number | string | null;
+  superfine_amount?: number | string | null;
+}): PenaltyAmounts {
+  const fallback = DEFAULT_PENALTIES[student.slab === "higher" ? "higher" : "lower"];
+  return {
+    fine:
+      student.fine_amount === null || student.fine_amount === undefined
+        ? fallback.fine
+        : Number(student.fine_amount),
+    superfine:
+      student.superfine_amount === null || student.superfine_amount === undefined
+        ? fallback.superfine
+        : Number(student.superfine_amount),
+  };
 }
 
 export interface DueBreakdown extends PeriodWindows {
@@ -107,10 +143,15 @@ export interface DueBreakdown extends PeriodWindows {
   payBy: string | null;
 }
 
-export function computeDue(period: string, base: number, onDate?: string): DueBreakdown {
+export function computeDue(
+  period: string,
+  base: number,
+  onDate?: string,
+  amounts?: PenaltyAmounts,
+): DueBreakdown {
   const w = windowsFor(period);
   const stage = stageOn(period, onDate);
-  const penalty = penaltyAmount(base, stage);
+  const penalty = penaltyAmount(base, stage, amounts ?? DEFAULT_PENALTIES.lower);
   const payBy =
     stage === "on_time"
       ? w.dueDate
@@ -183,3 +224,36 @@ export const EXPENSE_CATEGORIES = [
   "Permit",
   "Other",
 ] as const;
+
+/** Batch categories derived from the middle part of a roll number (e.g. CE/29/62). */
+export type YearGroup = "first" | "second" | "final" | "other";
+
+export const YEAR_GROUP_ORDER: YearGroup[] = ["first", "second", "final", "other"];
+
+export const YEAR_GROUP_LABEL: Record<YearGroup, string> = {
+  first: "First Year Students",
+  second: "Second Year Students",
+  final: "Final Year Students",
+  other: "Other Students",
+};
+
+/** `CE/29/62` -> "first". Unknown or missing roll numbers fall into "other". */
+export function yearGroupOf(roll: string | null | undefined): YearGroup {
+  const mid = (roll ?? "").split("/")[1]?.trim();
+  if (mid === "29") return "first";
+  if (mid === "28") return "second";
+  if (mid === "27") return "final";
+  return "other";
+}
+
+/** Splits rows into the four batch groups, preserving the incoming order. */
+export function groupByYear<T>(
+  rows: T[],
+  roll: (row: T) => string | null | undefined,
+): { key: YearGroup; label: string; rows: T[] }[] {
+  return YEAR_GROUP_ORDER.map((key) => ({
+    key,
+    label: YEAR_GROUP_LABEL[key],
+    rows: rows.filter((r) => yearGroupOf(roll(r)) === key),
+  })).filter((g) => g.rows.length > 0);
+}

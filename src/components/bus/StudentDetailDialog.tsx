@@ -3,7 +3,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Pencil, ShieldCheck, ShieldOff, Upload } from "lucide-react";
-import { studentDetail, setBlacklist, updateStudent } from "@/lib/bus.functions";
+import {
+  studentDetail,
+  setBlacklist,
+  updateStudent,
+  listStudentAdvances,
+} from "@/lib/bus.functions";
 import { STAGES, YEARS, updateStudentSchema } from "@/lib/bus-schemas";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -60,6 +65,9 @@ type FormState = {
   guardian_phone: string;
   roll_number: string;
   date_of_joining: string;
+  fine_amount: string;
+  superfine_amount: string;
+  advance_amount: string;
 };
 
 const EMPTY: FormState = {
@@ -75,6 +83,9 @@ const EMPTY: FormState = {
   guardian_phone: "",
   roll_number: "",
   date_of_joining: "",
+  fine_amount: "",
+  superfine_amount: "",
+  advance_amount: "",
 };
 
 
@@ -118,6 +129,9 @@ export function StudentDetailDialog({ studentId, onClose }: Props) {
       guardian_phone: student.guardian_phone ?? "",
       roll_number: student.roll_number ?? "",
       date_of_joining: student.date_of_joining ?? "",
+      fine_amount: String(student.fine_amount ?? ""),
+      superfine_amount: String(student.superfine_amount ?? ""),
+      advance_amount: String(student.advance_limit ?? ""),
 
     });
     setPhotoFile(null);
@@ -134,7 +148,14 @@ export function StudentDetailDialog({ studentId, onClose }: Props) {
       const photo_path = photoFile
         ? await uploadStudentPhoto(student.id, photoFile)
         : (student.photo_path ?? null);
-      const parsed = updateStudentSchema.safeParse({ ...form, id: student.id, photo_path });
+      const parsed = updateStudentSchema.safeParse({
+        ...form,
+        fine_amount: Number(form.fine_amount) || 0,
+        superfine_amount: Number(form.superfine_amount) || 0,
+        advance_amount: Number(form.advance_amount) || 0,
+        id: student.id,
+        photo_path,
+      });
       if (!parsed.success) {
         throw new Error(parsed.error.issues[0]?.message ?? "Check the form");
       }
@@ -152,6 +173,13 @@ export function StudentDetailDialog({ studentId, onClose }: Props) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const fetchAdvances = useServerFn(listStudentAdvances);
+  const advances = useQuery({
+    queryKey: ["advance-history", studentId],
+    queryFn: () => fetchAdvances({ data: { id: studentId as string } }),
+    enabled: Boolean(studentId),
+  });
+
   const blacklist = useMutation({
     mutationFn: blacklistFn,
     onSuccess: () => {
@@ -165,6 +193,12 @@ export function StudentDetailDialog({ studentId, onClose }: Props) {
 
   const payments = data?.payments ?? [];
   const totalPaid = payments.reduce((a, p) => a + Number(p.total_amount), 0);
+
+  const advanceRows = (advances.data?.rows ?? []).filter((r) => !r.voided_at);
+  const advanceHeld = advanceRows.reduce(
+    (a, r) => a + (r.kind === "return" ? -Number(r.amount) : Number(r.amount)),
+    0,
+  );
 
   return (
     <Dialog open={Boolean(studentId)} onOpenChange={(open) => !open && onClose()}>
@@ -344,6 +378,34 @@ export function StudentDetailDialog({ studentId, onClose }: Props) {
                   </div>
 
                   <div className="space-y-1">
+                    <Label htmlFor="e-fine">Fine amount (₹)</Label>
+                    <Input
+                      id="e-fine"
+                      inputMode="numeric"
+                      value={form.fine_amount}
+                      onChange={(e) => set("fine_amount")(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="e-superfine">Superfine amount (₹)</Label>
+                    <Input
+                      id="e-superfine"
+                      inputMode="numeric"
+                      value={form.superfine_amount}
+                      onChange={(e) => set("superfine_amount")(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="e-advance">Maximum advance (₹)</Label>
+                    <Input
+                      id="e-advance"
+                      inputMode="numeric"
+                      value={form.advance_amount}
+                      onChange={(e) => set("advance_amount")(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
                     <Label htmlFor="e-gname">Guardian name</Label>
                     <Input
                       id="e-gname"
@@ -441,6 +503,53 @@ export function StudentDetailDialog({ studentId, onClose }: Props) {
               )}
               <p className="mt-3 text-right text-sm font-semibold text-foreground">
                 Total paid: {formatINR(totalPaid)}
+              </p>
+            </section>
+
+            <section>
+              <h3 className="text-sm font-semibold text-foreground">Advance</h3>
+              {advanceRows.length === 0 ? (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  No advance collected from this student.
+                </p>
+              ) : (
+                <div className="mt-2 overflow-x-auto rounded-lg border border-border">
+                  <table className="w-full min-w-[600px] text-sm">
+                    <thead className="bg-muted/60 text-left text-muted-foreground">
+                      <tr>
+                        <th className="px-3 py-2 font-medium">Date</th>
+                        <th className="px-3 py-2 font-medium">Entry</th>
+                        <th className="px-3 py-2 font-medium">Amount</th>
+                        <th className="px-3 py-2 font-medium">Mode</th>
+                        <th className="px-3 py-2 font-medium">Note</th>
+                        <th className="px-3 py-2 font-medium">Transaction</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {advanceRows.map((r) => (
+                        <tr key={r.id}>
+                          <td className="px-3 py-2 text-muted-foreground">
+                            {formatDate(r.entry_date)}
+                          </td>
+                          <td className="px-3 py-2">
+                            {r.kind === "return" ? "Returned" : "Collected"}
+                          </td>
+                          <td className="px-3 py-2 font-medium">
+                            {formatINR(Number(r.amount))}
+                          </td>
+                          <td className="px-3 py-2 uppercase">{r.mode}</td>
+                          <td className="px-3 py-2 text-muted-foreground">{r.note ?? "—"}</td>
+                          <td className="px-3 py-2 text-xs text-muted-foreground">
+                            {r.txn_no ?? "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <p className="mt-3 text-right text-sm font-semibold text-foreground">
+                Advance held: {formatINR(Math.max(0, advanceHeld))}
               </p>
             </section>
           </div>
