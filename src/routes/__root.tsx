@@ -1,13 +1,15 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import {
-  Outlet,
-  Link,
-  createRootRouteWithContext,
-  useRouter,
-  HeadContent,
-  Scripts,
-} from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { 
+  Outlet, 
+  Link, 
+  createRootRouteWithContext, 
+  useRouter, 
+  useNavigate, // Added useNavigate
+  HeadContent, 
+  Scripts 
+} from "@tanstack/react-router";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { supabase } from "../lib/supabase"; // Adjust path to where your supabase client is defined
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
