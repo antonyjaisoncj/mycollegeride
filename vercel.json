@@ -1,5 +1,14 @@
 {
   "buildCommand": "npm run build",
-  "outputDirectory": ".output",
-  "framework": null
+  "outputDirectory": ".output/public",
+  "rewrites": [
+    {
+      "source": "/(api|_server_fn|~oauth)(.*)",
+      "destination": "/.output/server/index.mjs"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }
