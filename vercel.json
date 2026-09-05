@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/(api|_server_fn|~oauth)(.*)",
+      "destination": "/__server"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
