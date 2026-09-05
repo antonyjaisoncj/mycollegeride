@@ -1,3 +1,6 @@
+import { useEffect } from 'react'
+import { useNavigate } from '@tanstack/react-router'
+import { supabase } from '../lib/supabase' // Adjust path if needed
 import { useEffect, type ReactNode } from "react";
 import { 
   Outlet, 
