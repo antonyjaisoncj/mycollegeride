@@ -120,16 +120,16 @@ function AuthPage() {
 
 
   async function google() {
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-    });
-    if (result.error) {
-      toast.error("Google sign-in failed. Please try again.");
-      return;
-    }
-    if (result.redirected) return;
-    navigate({ to: "/dashboard", replace: true });
+  const result = await lovable.auth.signInWithOAuth("google", {
+    redirect_uri: window.location.origin,
+  });
+  if (result.error) {
+    toast.error("Google sign-in failed. Please try again.");
+    return;
   }
+  if (result.redirected) return;
+  navigate({ to: "/dashboard", replace: true });
+}
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-primary px-4 py-12">
